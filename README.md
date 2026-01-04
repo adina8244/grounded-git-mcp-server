@@ -110,8 +110,14 @@ Git commands are classified by **risk level**:
 - The agent **proposes** a command
 - The server returns:
   - a one-time confirmation token
-  - enforced safety preconditions (HEAD, conflicts, etc.)
+  - enforced safety preconditions (HEAD state, conflicts, etc.)
 - Execution occurs **only after explicit user confirmation**
+
+✅ **Audit & traceability:**  
+Every operation that requires explicit approval is **automatically audited**.  
+After execution, the user can review a durable record of what was proposed, approved, executed, and the resulting output — ensuring full transparency, accountability, and post-hoc validation.
+
+
 
 #### Critical risk — Manual only
 - Never executed by the server
