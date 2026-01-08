@@ -148,6 +148,10 @@ This design balances **automation, safety, and human control**, making the syste
 | ✅ | `execute_confirmed_tool` | Execute explicitly approved commands only |
 
 ---
+> **Note:**  
+> MCP tool **and resource** definitions in `server.py` intentionally include detailed, LLM-oriented descriptions.  
+> These descriptions are part of the AI-facing contract and are designed to guide correct selection, safe usage, and optimal agent behavior.
+
 
 ## Available MCP resources (read-only)
 
