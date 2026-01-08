@@ -35,6 +35,14 @@ def _git_stdout(runner: SafeGitRunner, args: list[str], *, context: str, read_on
 
 
 def _check_preconditions(runner: SafeGitRunner, p: Preconditions) -> None:
+    """
+    Validate that the repository state has not changed since a confirmation token was issued.
+    The safety guarantee: the user approves a command against a *specific* repo snapshot.
+    These checks bind execution to that snapshot (branch/HEAD/cleanliness), preventing
+    approve on state A, execute on state B" race conditions.
+    """
+
+    # Branch binding: prevents executing an approved command on an unintended branch.
     if p.expected_branch:
         branch = _git_stdout(
             runner,
@@ -44,6 +52,7 @@ def _check_preconditions(runner: SafeGitRunner, p: Preconditions) -> None:
         )
         _require_ok(branch == p.expected_branch, f"Branch changed: expected {p.expected_branch}, got {branch}")
 
+    # HEAD binding: ensures the token is only valid for the exact commit the user reviewed.
     if p.expected_head:
         head = _git_stdout(
             runner,
@@ -53,6 +62,7 @@ def _check_preconditions(runner: SafeGitRunner, p: Preconditions) -> None:
         )
         _require_ok(head == p.expected_head, "HEAD changed since approval.")
 
+    # Cleanliness binding: some workflows only allow execution on a clean working tree.
     if p.require_clean:
         st = _git_stdout(
             runner,
@@ -62,6 +72,7 @@ def _check_preconditions(runner: SafeGitRunner, p: Preconditions) -> None:
         )
         _require_ok(st == "", "Working tree is not clean.")
 
+    # Conflict guard: avoids running mutating commands while merge/rebase conflicts exist.
     if p.require_no_conflicts:
         unmerged = _git_stdout(
             runner,
@@ -80,8 +91,13 @@ def propose_git_command(
     require_clean: bool = False,
 ) -> dict[str, Any]:
     """
-    Create a one-time approval token for a specific git command.
-    The command is NOT executed here.
+    Propose a Git command for explicit user approval.
+
+    This function does NOT execute the command.
+    It classifies risk, enforces policy boundaries, and generates a one-time confirmation token
+    bound to a stable repo snapshot (HEAD/branch/cleanliness).
+
+    Execution can only happen later via execute_confirmed(...), after the user explicitly confirms.
     """
     root_path = _repo_path(root)
     runner = SafeGitRunner(root_path)  
@@ -108,7 +124,7 @@ def propose_git_command(
         cmd_hash=command_hash(args),
         created_at=now,
         expires_at=now + _CONFIRM_TTL_SECONDS,
-        max_uses=1,
+        max_uses=1, # One-shot token: prevents replay of the same approval.
         used=0,
         preconditions=Preconditions(
             expected_head=expected_head,
@@ -161,7 +177,8 @@ def execute_confirmed(
     _require_ok(user_confirmation.strip() == expected_phrase, f"Invalid confirmation phrase. Use: {expected_phrase}")
 
     _require_ok(command_hash(confirmation.args) == confirmation.cmd_hash, "Command hash mismatch (tampering detected).")
-
+    
+    # Validate the repo is still in the same state that the user reviewed.
     _check_preconditions(runner, confirmation.preconditions)
 
     res = runner.run(confirmation.args, read_only=False)

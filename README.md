@@ -8,11 +8,11 @@
 
 **grounded-git-mcp** is a local, production-grade **MCP (Model Context Protocol) server** that provides AI agents with **secure, deeply contextual access** to Git repositories.
 
-Because it runs **entirely locally**, the server always operates on the **exact, real state of the codebase** — including the working tree, uncommitted changes, and full Git history.  
+Because it runs **entirely locally**, the server always operates on the **exact, real state of the codebase** - including the working tree, uncommitted changes, and full Git history.  
 This enables **precise, state-aware debugging and analysis** without relying on stale snapshots or remote APIs.
 
 The system is designed with a **safety-first execution model**:  
-AI agents may *analyze*, *reason*, and *propose* Git commands — but **never execute write operations automatically**.
+AI agents may *analyze*, *reason*, and *propose* Git commands - but **never execute write operations automatically**.
 
 ---
 
@@ -31,8 +31,8 @@ AI agents may *analyze*, *reason*, and *propose* Git commands — but **never ex
 
 The core strength of `grounded-git-mcp` is that it exposes **both time and state** to AI agents.
 
-- **Time** — complete Git history: commits, diffs, blame, and file content at any reference  
-- **State** — the current local working tree: staged, unstaged, and uncommitted changes
+- **Time** -complete Git history: commits, diffs, blame, and file content at any reference  
+- **State** - the current local working tree: staged, unstaged, and uncommitted changes
 
 This allows agents to answer questions such as:
 
@@ -62,7 +62,7 @@ Using `grounded-git-mcp`, the agent was able to:
 3. Identify the exact files and lines that changed
 4. Trace authorship and intent using `git blame`
 5. Explain **why** the regression occurred
-6. Propose a **minimal, safe fix** — without executing anything
+6. Propose a **minimal, safe fix** - without executing anything
 
 ### Visual example
 ![Live regression debugging using grounded local Git context](docs/live-debugging-example.png)
@@ -88,7 +88,7 @@ By combining **current local state** with **full Git history**, AI agents can:
 - Regression and root-cause investigations  
 - Design and architectural reviews  
 
-The result is **continuous, engineering-grade context** — not isolated snapshots.
+The result is **continuous, engineering-grade context** - not isolated snapshots.
 
 ---
 
@@ -100,12 +100,12 @@ All Git operations are governed by a strict safety model.
 
 Git commands are classified by **risk level**:
 
-#### Low risk — Read-only
+#### Low risk - Read-only
 - Non-mutating commands execute immediately
 - No approval required
 - Enables fast inspection and analysis
 
-#### Medium risk — Write operations
+#### Medium risk - Write operations
 - Never executed automatically
 - The agent **proposes** a command
 - The server returns:
@@ -119,7 +119,7 @@ After execution, the user can review a durable record of what was proposed, appr
 
 
 
-#### Critical risk — Manual only
+#### Critical risk - Manual only
 - Never executed by the server
 - The agent explains what to run
 - The user executes commands manually

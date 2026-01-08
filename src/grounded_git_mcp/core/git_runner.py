@@ -95,6 +95,16 @@ class SafeGitRunner:
         read_only: bool = True,
         env: dict[str, str] | None = None,
     ) -> GitRunResult:
+        """
+        Execute a git command under strict safety constraints.
+        Safety boundary:
+        This method is the single choke-point that enforces:
+        - read-only policy (unless explicitly allowed)
+        - allowlist/flag validation
+        - timeouts (no hanging subprocess)
+        - output ceilings (prevent runaway logs / memory blowups)
+        - deterministic environment (for agent-friendly behavior)
+     """
         args_list = list(args)
         self._validate_args(args_list, read_only=read_only)
 
@@ -124,6 +134,12 @@ class SafeGitRunner:
         )
 
     def _validate_args(self, args_list: list[str], *, read_only: bool) -> None:
+        """
+        Enforce the server-side safety policy for git invocations.
+
+        In read-only mode we apply a strict allowlist + mutating-flag denylist to prevent
+        unexpected repository changes (even via seemingly "read" commands).
+        """
         if not args_list:
             raise GitPolicyError("Empty git args are not allowed.")
 
@@ -131,6 +147,7 @@ class SafeGitRunner:
             return
         args = [a.strip() for a in args_list]
         lowered = [a.lower() for a in args]
+        # We validate based on the normalized form to avoid bypasses through casing/spacing.
         subcmd = lowered[0]
         if subcmd not in self.config.read_only_allowlist:
             raise GitPolicyError(
@@ -139,6 +156,8 @@ class SafeGitRunner:
             )
 
         dangerous_flags = {
+            # These flags can mutate config/state even when the base subcommand looks benign.
+            # Example: `git config --global ...` or `git branch -D ...`.
             "--global", "--system",  
             "--unset", "--unset-all", "--add", "--replace-all",
             "--delete",              
@@ -149,19 +168,24 @@ class SafeGitRunner:
             raise GitPolicyError(f"Blocked potentially mutating git flags in read-only mode: {args_list}")
 
         if subcmd == "branch" and any(t in lowered for t in {"-d", "-D".lower(), "--delete"}):
+            # Branch deletion is a write operation even though `git branch` is commonly used for inspection.
             raise GitPolicyError("Blocked branch deletion in read-only mode.")
 
         if subcmd == "tag" and any(t in lowered for t in {"-d", "--delete"}):
+            # Tag deletion mutates refs.
             raise GitPolicyError("Blocked tag deletion in read-only mode.")
 
         if subcmd == "remote" and len(lowered) >= 2:
             op = lowered[1]
             if op in {"set-url", "add", "remove", "rename"}:
+            # Remote mutation affects repo configuration and can reroute future fetch/push operations.
                 raise GitPolicyError("Blocked remote mutation in read-only mode.")
 
        
         if subcmd == "config":
             if len(lowered) >= 3:
+            # `git config <key> <value>` is a write. In read-only mode we only allow safe reads
+            # like `git config --get ...` (subcommand allowlist covers that).
                 raise GitPolicyError("Blocked config write in read-only mode.")
 
 
@@ -171,14 +195,21 @@ class SafeGitRunner:
         Build a controlled environment that prevents interactive hangs.
         """
         merged_env = dict(os.environ)
+
+        # Enforce a deterministic, non-interactive Git execution environment
+        # to guarantee reproducible output and avoid agent hangs.
         merged_env.update(
             {
+                # Never allow git to prompt for credentials/passwords (agents run non-interactively).
                 "GIT_TERMINAL_PROMPT": "0",
-                "GCM_INTERACTIVE": "Never",  
-                "GIT_PAGER": "cat",          
+                # Disable Git Credential Manager UI prompts (Windows in particular).
+                "GCM_INTERACTIVE": "Never",
+                # Force plain output (no pager) to keep responses bounded and machine-friendly.
+                "GIT_PAGER": "cat",
+                # Locale-stable output: prevents parsing issues due to localized messages.
                 "LC_ALL": "C",
+                # Reduce lock contention / optional locks to avoid long stalls in certain environments.
                 "GIT_OPTIONAL_LOCKS": "0",
-
             }
         )
 

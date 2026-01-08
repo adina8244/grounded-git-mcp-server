@@ -6,6 +6,12 @@ from typing import Any
 
 @dataclass(frozen=True)
 class GitRunResult:
+    """
+    Structured result of a single git subprocess execution.
+
+    This model is intentionally explicit and serializable to keep the MCP boundary stable:
+    tools return a deterministic schema that is easy to snapshot-test and consume by agents.
+    """
     argv: list[str]
     root: str
     stdout: str
