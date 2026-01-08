@@ -20,6 +20,11 @@ python_files = ["test_*.py", "*_test.py"]
 python_functions = ["test_*"]
 addopts = "-q"
 
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+]
+
 [project.optional-dependencies]
 dev = [
   "pytest>=8.0",
